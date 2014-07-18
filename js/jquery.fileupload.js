@@ -146,6 +146,9 @@
             bitrateInterval: 500,
             // By default, uploads are started automatically when adding files:
             autoUpload: true,
+            // Android4 : Reflection of the formData object to acces its properties,
+            // (formData properties cannot be accessed)
+            formDataObject: {},
 
             // Error and info messages:
             messages: {
@@ -451,6 +454,7 @@
                             name: paramName,
                             value: options.blob
                         });
+                        options.formDataObject[paramName]=options.blob;
                     } else {
                         $.each(options.files, function (index, file) {
                             formData.push({
@@ -458,6 +462,8 @@
                                     options.paramName[index]) || paramName,
                                 value: file
                             });
+                            options.formDataObject[($.type(options.paramName) === 'array' &&
+                                    options.paramName[index]) || paramName]=file;
                         });
                     }
                 } else {
@@ -467,10 +473,12 @@
                         formData = new FormData();
                         $.each(this._getFormData(options), function (index, field) {
                             formData.append(field.name, field.value);
+                            options.formDataObject[field.name]=field.value;
                         });
                     }
                     if (options.blob) {
                         formData.append(paramName, options.blob, file.name);
+                        options.formDataObject[paramName]=options.blob;
                     } else {
                         $.each(options.files, function (index, file) {
                             // This check allows the tests to run with
@@ -483,6 +491,8 @@
                                     file,
                                     file.uploadName || file.name
                                 );
+                                options.formDataObject[ ($.type(options.paramName) === 'array' &&
+                                        options.paramName[index]) || paramName]=file;
                             }
                         });
                     }
@@ -1535,23 +1545,24 @@
                     this.segments = [];
 
                     // Loop through our submitted form data, adding it to the POST
-                    for (i = 0; i < options.data.length; i++) {
-                        if (options.data[i].value instanceof Blob && options.files[fileNumber] instanceof File) {
+                    for (i in options.formDataObject) {                        
+                        var ldata=options.formDataObject[i];
+                        if (ldata instanceof Blob && (options.files[fileNumber] instanceof File || options.files[fileNumber] instanceof Blob)) {   
                             fileReader = new FileReader();
                             fileReader.segmentIdx = this.segments.length;
                             fileReader.owner = this;
                             fileReader.onload = pushSegment;
                             this.segments.push(
-                                'Content-Disposition: form-data; name="' + options.data[i].name + '"; ' +
+                                'Content-Disposition: form-data; name="' + i + '"; ' +
                                 'filename="' + options.files[fileNumber].name + "\"\r\n" +
-                                'Content-Type: ' + options.data[i].value.type + "\r\n\r\n"
+                                'Content-Type: ' + ldata.type + "\r\n\r\n"
                             );
                             this.status++;
                             fileNumber++;
-                            fileReader.readAsBinaryString(options.data[i].value);
+                            fileReader.readAsBinaryString(ldata);
                         } else {
                             this.segments.push(
-                                "Content-Disposition: form-data; name=\"" + options.data[i].name + "\"\r\n\r\n" + options.data[i].value + "\r\n"
+                                "Content-Disposition: form-data; name=\"" + i + "\"\r\n\r\n" + ldata + "\r\n"
                             );
                         }
                     }
